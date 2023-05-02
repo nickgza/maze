@@ -1,4 +1,4 @@
 (executable
  (public_name maze)
  (name main)
- (libraries graphics maze))
+ (libraries threads graphics maze))
