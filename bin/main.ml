@@ -1,6 +1,10 @@
 (* Compile: ocamlfind ocamlopt -thread -package threads -package graphics -linkpkg ./bin/main.ml -o maze *)
+(* Usage: ./maze width *)
 
 open Graphics;;
+open Printf;;
+
+Random.self_init ();;
 
 let purple = rgb 100 0 100;;
 let green = rgb 0 200 0;;
@@ -23,9 +27,9 @@ type cell_t = {mutable walls : wall_t list; mutable visited : bool; mutable curr
 type maze_t = cell_t array array;;
 
 (* Initialize maze *)
-let maze = Array.init width (fun _ -> Array.init width (fun _ -> {walls = [Bottom; Right; Top; Left];
-                                                                  visited = false;
-                                                                  current = false}));;
+let maze : maze_t = Array.init width (fun _ -> Array.init width (fun _ -> {walls = [Bottom; Right; Top; Left];
+                                                                           visited = false;
+                                                                           current = false}));;
 
 (* Prints the maze to console *)
 let print_maze (maze : maze_t) : unit = 
@@ -68,16 +72,65 @@ let rec draw_maze_wrap (maze : maze_t) : unit =
   synchronize ();
   draw_maze_wrap maze;;
 
-(* Main *)
-print_maze maze;;
+(* Modify cells *)
+let add_wall (direction : wall_t) (cell : cell_t) : unit =
+  match direction with
+  | Bottom -> cell.walls <- Bottom :: cell.walls
+  | Right -> cell.walls <- Right :: cell.walls
+  | Top -> cell.walls <- Top :: cell.walls
+  | Left -> cell.walls <- Left :: cell.walls;;
+let remove_wall (direction : wall_t) (cell : cell_t) : unit =
+  match direction with
+  | Bottom -> cell.walls <- List.filter (fun elem -> elem <> Bottom) cell.walls
+  | Right -> cell.walls <- List.filter (fun elem -> elem <> Right) cell.walls
+  | Top -> cell.walls <- List.filter (fun elem -> elem <> Top) cell.walls
+  | Left -> cell.walls <- List.filter (fun elem -> elem <> Left) cell.walls;;
 
-maze.(0).(0).visited <- true;;
-maze.(1).(0).current <- true;;
-  
+(* Set the "current" cell *)
+let set_current (maze : maze_t) (set_i, set_j : coord_t) : unit =
+  Array.iteri (fun i row -> Array.iteri 
+  (fun j cell -> cell.current <- if i = set_i && j = set_j then true else false) row) maze;;
+
+type neighbour_t = {wall : wall_t; coord : coord_t};;
+
+(* DFS for maze generation *)
+let dfs (maze : maze_t) (start_i, start_j : coord_t) : unit =
+  let rec explore (maze : maze_t) (i : int) (j : int) : unit =
+    set_current maze (i, j);
+    maze.(i).(j).visited <- true;
+    Thread.delay 0.1;
+
+    let neighbours = [| Top; Bottom; Left; Right |] in
+    for n = 3 downto 1 do
+      let k = Random.int (n+1) in
+      let tmp = neighbours.(k) in
+      neighbours.(k) <- neighbours.(n); neighbours.(n) <- tmp
+    done;
+
+    for n = 0 to Array.length neighbours - 1 do
+      match neighbours.(n) with
+      | Top -> if i > 0 && not maze.(i-1).(j).visited then
+        (remove_wall Top maze.(i).(j); remove_wall Bottom maze.(i-1).(j); explore maze (i-1) j)
+      | Bottom -> if i < width - 1 && not maze.(i+1).(j).visited then
+        (remove_wall Bottom maze.(i).(j); remove_wall Top maze.(i+1).(j); explore maze (i+1) j)
+      | Left -> if j > 0 && not maze.(i).(j-1).visited then
+        (remove_wall Left maze.(i).(j); remove_wall Right maze.(i).(j-1); explore maze i (j-1))
+      | Right -> if j < width - 1 && not maze.(i).(j+1).visited then
+        (remove_wall Right maze.(i).(j); remove_wall Left maze.(i).(j+1); explore maze i (j+1))
+    done
+  in
+    if start_i = 0 then remove_wall Top maze.(start_i).(start_j);
+    if start_i = width - 1 then remove_wall Bottom maze.(start_i).(start_j);
+    if start_j = 0 then remove_wall Left maze.(start_i).(start_j);
+    if start_j = width - 1 then remove_wall Right maze.(start_i).(start_j);
+    explore maze start_i start_j;;
+
+(* Main *)
 open_graph (" " ^ string_of_int canvas_width ^ "x" ^ string_of_int canvas_width);;
 auto_synchronize false;;
 set_line_width 2;;
 
 Thread.create draw_maze_wrap maze;;
+dfs maze (0, 0);;
 
 read_line ();;
