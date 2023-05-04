@@ -98,7 +98,8 @@ let dfs (maze : maze_t) (start_i, start_j : coord_t) : unit =
   let rec explore (maze : maze_t) (i : int) (j : int) : unit =
     set_current maze (i, j);
     maze.(i).(j).visited <- true;
-    Thread.delay 0.1;
+
+    Thread.delay (max 0.005 (-0.2 /. float_of_int width +. 1.2 /. float_of_int width -. 0.02)); (* Don't worry where this comes from *)
 
     let neighbours = [| Top; Bottom; Left; Right |] in
     for n = 3 downto 1 do
@@ -128,8 +129,9 @@ let dfs (maze : maze_t) (start_i, start_j : coord_t) : unit =
 (* Main *)
 open_graph (" " ^ string_of_int canvas_width ^ "x" ^ string_of_int canvas_width);;
 auto_synchronize false;;
-set_line_width 2;;
+set_line_width (if width > 30 then 1 else 2);;
 
+(* New thread for graphics *)
 Thread.create draw_maze_wrap maze;;
 dfs maze (0, 0);;
 
