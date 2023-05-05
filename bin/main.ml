@@ -91,6 +91,12 @@ let set_current (maze : maze_t) (set_i, set_j : coord_t) : unit =
   Array.iteri (fun i row -> Array.iteri 
   (fun j cell -> cell.current <- if i = set_i && j = set_j then true else false) row) maze;;
 
+let remove_edges (maze : maze_t) (i, j : coord_t) : unit =
+  if i = 0 then remove_wall Top maze.(i).(j);
+  if i = width - 1 then remove_wall Bottom maze.(i).(j);
+  if j = 0 then remove_wall Left maze.(i).(j);
+  if j = width - 1 then remove_wall Right maze.(i).(j);
+
 type neighbour_t = {wall : wall_t; coord : coord_t};;
 
 (* DFS for maze generation *)
@@ -120,10 +126,6 @@ let dfs (maze : maze_t) (start_i, start_j : coord_t) : unit =
         (remove_wall Right maze.(i).(j); remove_wall Left maze.(i).(j+1); explore maze i (j+1))
     done
   in
-    if start_i = 0 then remove_wall Top maze.(start_i).(start_j);
-    if start_i = width - 1 then remove_wall Bottom maze.(start_i).(start_j);
-    if start_j = 0 then remove_wall Left maze.(start_i).(start_j);
-    if start_j = width - 1 then remove_wall Right maze.(start_i).(start_j);
     explore maze start_i start_j;;
 
 (* Main *)
@@ -131,8 +133,14 @@ open_graph (" " ^ string_of_int canvas_width ^ "x" ^ string_of_int canvas_width)
 auto_synchronize false;;
 set_line_width (if width > 30 then 1 else 2);;
 
+let start_i, start_j = 0, 0;;
+let end_i, end_j = width - 1, width - 1;;
+
 (* New thread for graphics *)
 Thread.create draw_maze_wrap maze;;
-dfs maze (0, 0);;
+
+remove_edges maze (start_i, start_j);;
+dfs maze (start_i, start_j);;
+remove_edges maze (end_i, end_j);;
 
 read_line ();;
